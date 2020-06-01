@@ -1,19 +1,373 @@
-#pragma comment(lib, "ws2_32.lib")
-#include <winsock2.h>
-#include <stdio.h>
-#include <string.h>
-#include <iostream>
-#include <Windows.h>
-#include <conio.h>
-#include <iomanip>
-#include <string>
 #include "header.h"
-#include <limits>
+#include <iostream>
+#include <iomanip>
+#include <locale.h>
+#include <fstream>
+#include <algorithm>
+#include <string.h>
+#include <string>
+#include <conio.h>
+#include <time.h>
+#include <Windows.h>
+#include <winsock2.h>
+#pragma comment(lib, "ws2_32.lib")
+
 
 using namespace std;
 
-void main()
-{
+
+DWORD WINAPI ThreadFunc(LPVOID client_socket) {
+	SOCKET s2 = ((SOCKET*)client_socket)[0];
+	char string2[20];
+	char string1[20];
+	int x;
+	char login[100];
+	char password[100];
+	char admin[20] = "admins.txt";
+	char user[20] = "users.txt";
+	int status = 0;
+	char buf[20];
+	char res[20];
+	char filename[20];
+	int result;
+	int q;
+	char qq[20];
+	FILE* f;
+	int pro = 0;
+	char prov[10];
+	Authorization client;
+	Matrix mat;
+	RankMethod method;
+	bool signl = false;
+	int r = 0;
+	while (r == 0) {
+		recv(s2, string2, sizeof(string2), 0);
+		int flag = atoi(string2);
+		switch (flag) {
+		case 1: {
+			int n = 0;
+			while (n == 0) {
+				recv(s2, buf, sizeof(buf), 0);
+				int choice = atoi(buf);
+				switch (choice) {
+				case 1: {
+					recv(s2, login, sizeof(login), 0);
+					recv(s2, password, sizeof(password), 0);
+					result = client.check(admin, login, password);
+					itoa(result, res, 10);
+					send(s2, res, 20, 0);
+					if (result == 0)
+						break;
+					else if (result == 2)
+						break;
+					else if (result == -1)
+						break;
+					int r = 0;
+					while (r == 0) {
+						recv(s2, string1, sizeof(string1), 0);
+						int x = atoi(string1);
+						switch (x) {
+						case 1: {
+							memset(buf, 20, 0);
+							recv(s2, buf, sizeof(buf), 0);
+							int expertNum = atoi(buf);
+							memset(buf, 20, 0);
+							recv(s2, buf, sizeof(buf), 0);
+							int factorsNum = atoi(buf);
+							method.createMatrix(expertNum, factorsNum);
+							for (int i = 0; i < expertNum; i++) {
+								for (int j = 0; j < factorsNum; j++) {
+									memset(buf, 20, 0);
+									recv(s2, buf, sizeof(buf), 0);
+									method.inputMatrixElem(i, j, atoi(buf));
+								}
+							}
+							signl = true;
+							break;
+						}
+						case 2: {
+							if (signl) {
+								for (int i = 0; i < method.getExpertNum(); i++) {
+									for (int j = 0; j < method.getFactorsNum(); j++) {
+										memset(buf, 20, 0);
+										recv(s2, buf, sizeof(buf), 0);
+										method.inputMatrixElem(i, j, atoi(buf));
+									}
+								}
+							}
+							break;
+						}
+						case 3: {
+							if (signl) {
+								method.countWeight();
+								method.consistencyСheck();
+								string otchet;
+								otchet = method.outputResultOfMethod();
+								char* resOfMethod = new char[otchet.size() + 1];
+								strcpy(resOfMethod, otchet.c_str());
+								send(s2, resOfMethod, otchet.size() + 1, 0);
+							}
+							break;
+						}
+						case 4: {
+							break;	
+						}
+						case 5: {
+							recv(s2, filename, sizeof(filename), 0);
+							ofstream fout(filename);
+							if (!fout.is_open()) {
+								exit(1);
+							}
+							fout << method.getExpertNum()<<" "<<method.getFactorsNum()<< endl;
+							for (int i = 0; i < method.getExpertNum(); i++) {
+								fout << endl;
+								for (int j = 0; j <method.getFactorsNum(); j++) {
+									fout << method.getMatrixElem(i,j) << ' ';
+									if (fout.bad()) {
+										//cerr << "Error while writing data!" << endl;
+										exit(1);
+									}
+								}
+							}
+
+							fout.close();
+							break;
+						}
+						case 6: {
+							recv(s2, filename, sizeof(filename), 0);
+							ifstream fin(filename);
+							if (!fin.is_open()) {	
+								send(s2, "0", sizeof("0"), 0);
+								exit(1);
+							}
+							else {
+								send(s2, "1", sizeof("1"), 0);
+							}
+							int expertNum, factorsNum;
+							fin >> expertNum >> factorsNum;
+							RankMethod method2;
+							method2.createMatrix(expertNum,factorsNum);
+							int tmp;
+							for (int i = 0; i < expertNum; i++) {
+								for (int j = 0; j < factorsNum; j++) {
+									fin >> tmp;
+									method2.inputMatrixElem(i, j, tmp);
+									if (fin.bad()) {
+										exit(1);
+									}
+								}
+							}
+							fin.close();
+							memset(buf, 20, 0);
+							itoa(expertNum, buf, 10);
+							send(s2, buf, sizeof(buf), 0);
+							memset(buf, 20, 0);
+							itoa(factorsNum, buf, 10);
+							send(s2, buf, sizeof(buf), 0);
+							for (int i = 0; i < expertNum; i++) {
+								for (int j = 0; j < factorsNum; j++) {
+									memset(buf, 20, 0);
+									itoa(method2.getMatrixElem(i,j), buf, 10);
+									send(s2, buf, sizeof(buf), 0);
+								}
+							}
+							method2.countWeight();
+							method2.consistencyСheck();
+							string otchet;
+							otchet=method2.outputResultOfMethod();
+							char* resOfMethod = new char[otchet.size()+1];
+							strcpy(resOfMethod, otchet.c_str());
+							send(s2, resOfMethod, otchet.size() + 1, 0);
+							break;
+						}
+						case 7: {
+							char buffer[200];
+							STO smt("STO");
+							smt.readFromFile();
+							recv(s2, buffer, sizeof(buffer), 0);
+							string name = buffer;
+							memset(buf, 20, 0);
+							recv(s2, buf, sizeof(buf), 0);
+							int cost = atoi(buf);
+							smt.addProduct(cost, name);
+							smt.writeInFile();
+							smt.showProductsServ(s2);
+							break;
+						}
+						case 8: {
+							STO smt("STO");
+							smt.readFromFile();
+							smt.showProductsServ(s2);
+							int choice;
+							memset(buf, 20, 0);
+							recv(s2, buf, sizeof(buf), 0);
+							choice = atoi(buf);
+							smt.deleteProductServ(choice);
+							smt.writeInFile();
+							smt.showProductsServ(s2);
+							break;
+						}
+						case 9: {
+							STO smt("STO");
+							smt.readFromFile();
+							smt.showProductsServ(s2);
+							int choice;
+							memset(buf, 20, 0);
+							recv(s2, buf, sizeof(buf), 0);
+							choice = atoi(buf);
+							char buffer[200];
+							recv(s2, buffer, sizeof(buffer), 0);
+							string name = buffer;
+							memset(buf, 20, 0);
+							recv(s2, buf, sizeof(buf), 0);
+							int cost = atoi(buf);
+							smt.changeProductsServ(choice, name, cost);
+							smt.writeInFile();
+							smt.showProductsServ(s2);
+							break;
+						}
+						case 10: {
+							STO smt("STO");
+							smt.readFromFile();
+							smt.showProductsServ(s2);
+							break;
+						}
+						case 11: {
+							r = 1;
+							itoa(r, res, 10);
+							send(s2, res, 20, 0);
+							break;
+						}
+						}
+					}
+					break;
+				}
+				case 2: {
+					n = 1;
+					itoa(n, res, 10);
+					send(s2, res, 20, 0);
+					break;
+				}
+				}
+			}
+			break;
+		}
+		case 2: {
+			int n = 0;
+			while (n == 0) {
+				recv(s2, buf, sizeof(buf), 0);
+				int choice = atoi(buf);
+				switch (choice) {
+				case 1: {
+					recv(s2, login, sizeof(login), 0);
+					recv(s2, password, sizeof(password), 0);
+					result = client.check(user, login, password);
+					itoa(result, res, 10);
+					send(s2, res, 20, 0);
+					if (result == 0)
+						break;
+					else if (result == 2)
+						break;
+					else if (result == -1)
+						break;
+					int r = 0;
+					while (r == 0) {
+						recv(s2, string1, sizeof(string1), 0);
+						int x = atoi(string1);
+						switch (x) {
+						case 1: {
+							memset(buf, 20, 0);
+							recv(s2, buf, sizeof(buf), 0);
+							int expertNum = atoi(buf);
+							memset(buf, 20, 0);
+							recv(s2, buf, sizeof(buf), 0);
+							int factorsNum = atoi(buf);
+							method.createMatrix(expertNum, factorsNum);
+							for (int i = 0; i < expertNum; i++) {
+								for (int j = 0; j < factorsNum; j++) {
+									memset(buf, 20, 0);
+									recv(s2, buf, sizeof(buf), 0);
+									method.inputMatrixElem(i, j, atoi(buf));
+								}
+							}
+							break;
+						}
+						case 2: {
+							for (int i = 0; i < method.getExpertNum(); i++) {
+								for (int j = 0; j < method.getFactorsNum(); j++) {
+									memset(buf, 20, 0);
+									recv(s2, buf, sizeof(buf), 0);
+									method.inputMatrixElem(i, j, atoi(buf));
+								}
+							}
+							break;
+						}
+						case 3:{
+							method.countWeight();
+							method.consistencyСheck();
+							string otchet;
+							otchet = method.outputResultOfMethod();
+							char* resOfMethod = new char[otchet.size() + 1];
+							strcpy(resOfMethod, otchet.c_str());
+							send(s2, resOfMethod, otchet.size() + 1, 0);
+							break;
+						}
+						case 4: {
+							break;
+						}
+						case 5: {
+							STO smt("STO");
+							smt.readFromFile();
+							smt.showProductsServ(s2);
+							break;
+						}
+						case 6: {
+							r = 1;
+							itoa(r, res, 10);
+							send(s2, res, 20, 0);
+							break;
+						}
+						}
+					}
+
+
+					break;
+				}
+				case 2: {
+					recv(s2, login, sizeof(login), 0);
+					recv(s2, password, sizeof(password), 0);
+					result = client.registration(user, login, password);
+					itoa(result, res, 10);
+					send(s2, res, 20, 0);
+					break;
+				}
+				case 3: {
+					n = 1;
+					itoa(result, res, 10);
+					send(s2, res, 20, 0);
+					break;
+				}
+				}
+			}
+			break;
+		}
+		case 3: {
+			r = 1;
+			itoa(r, res, 10);
+			send(s2, res, 20, 0);
+			return 0;
+		}
+		}
+	}
+	closesocket(s2);
+	return 0;
+}
+
+
+
+
+
+void main() {
 	SetConsoleCP(1251);
 	SetConsoleOutputCP(1251);
 	WORD wVersionRequested;
@@ -22,550 +376,22 @@ void main()
 	wVersionRequested = MAKEWORD(2, 2);
 	err = WSAStartup(wVersionRequested, &wsaData);
 	if (err != 0) { return; }
-
-	while (true)
-	{
-		SOCKET s = socket(AF_INET, SOCK_STREAM, 0);
-		sockaddr_in dest_addr;
-		dest_addr.sin_family = AF_INET;
-		dest_addr.sin_port = htons(1280);
-		dest_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-		if (connect(s, (sockaddr*)&dest_addr, sizeof(dest_addr)) == NULL) {
-			cout << "Соединение..........." << endl << endl;
-			cout << "Подключение к серверу прошло успешно." << endl << endl;
-			cout << "Нажмите клавишу для продолжения." << endl;
-			_getch();
-			system("cls");
-		}
-		else {
-			cout << "Подключение к серверу не удалось :( ..." << endl;
-			exit(-1);
-		}
-		char strinG[20];
-		char buf[20];
-		char buf1[20];
-		char name[20];
-		Chek<int> vv;
-		Authorization client;
-		Matrix mat;
-		bool signl = false;
-		char res[20];
-		int result;
-		int choice = 0;
-
-		while (1)
-		{
-			cout << "1. Администратор" << endl;
-			cout << "2. Пользователь" << endl;
-			cout << "3. Завершение работы" << endl;
-			cout << endl;
-			int flag;
-			vv.inputNumber(flag);
-			itoa(flag, strinG, 10);
-			send(s, strinG, 20, 0);
-			switch (flag)
-			{
-			case 1:
-			{
-				system("cls");
-				int t = 0;
-				while (t == 0)
-				{
-					cout << "1.  Продолжить работу\n";
-					cout << "2.  Назад \n";
-					vv.inputNumber(choice);
-					itoa(choice, buf, 10);
-					send(s, buf, 20, 0);
-					switch (choice)
-					{
-					case 1:
-					{
-						system("cls");
-						cout << "Введите логин администратора: " << endl;
-						client.inputLogin();
-						string temp = client.getLogin();
-						char* tmp = new char[temp.size() + 1];
-						strcpy(tmp, temp.c_str());
-						send(s, tmp, temp.size() + 1, 0);
-						cout << "Введите пароль администратора: " << endl;
-						client.inputPass();
-						temp = client.getPass();
-						strcpy(tmp, temp.c_str());
-						send(s, tmp, temp.size() + 1, 0);
-						if (recv(s, res, sizeof(res), 0) != 0)
-						{
-							result = atoi(res);
-							if (result == 1)
-							{
-								system("cls");
-								int u = 0;
-								while (u == 0)
-								{
-									cout << "\tМеню Админа:\n" << endl;
-									cout << "1. Ввести оценки экспертов" << endl;
-									cout << "2. Редактировать введенные значения" << endl;
-									cout << "3. Вычислить наиболее важный фактор" << endl;
-									cout << "4. Вывести матрицу экспертных оценок" << endl;
-									cout << "5. Записать матрицу в архив" << endl;
-									cout << "6. Произвести рассчет задачи из архива" << endl;
-									cout << "7. Добавить услугу на СТО" << endl;
-									cout << "8. Удалить услугу СТО" << endl;
-									cout << "9. Изменить услугу СТО" << endl;
-									cout << "10. Вывод услуг СТО" << endl;
-									cout << "11. Выход\n\n" << endl;
-									int x;
-									vv.inputNumber(x);
-									itoa(x, buf1, 10);
-									send(s, buf1, 20, 0);
-									switch (x) {
-									case 1: {
-										system("cls");
-										cout << "Введите количество экспертов:" << endl;
-										fflush(stdin);
-										int expertNum;
-										vv.inputNumber(expertNum);
-										memset(buf, 20, 0);
-										itoa(expertNum, buf, 10);
-										send(s, buf, 10, 0);
-										cout << "Введите количество факторов(альтернатив):" << endl;
-										int factorsNum;
-										vv.inputNumber(factorsNum);
-										memset(buf, 20, 0);
-										itoa(factorsNum, buf, 10);
-										send(s, buf, 10, 0);
-										mat.Create(expertNum, factorsNum);
-										cout << "Введите значения" << endl;
-										for (int i = 0; i < expertNum; i++) {
-											cout << "Эксперт № " << i + 1 << endl;
-											for (int j = 0; j < factorsNum; j++) {
-												cout << "Оценка альтернативы № " << j + 1 << ':';
-												vv.inputNumber(mat.Element(i, j));
-
-											}
-										}
-										signl = true;
-										for (int i = 0; i < expertNum; i++)
-											for (int j = 0; j < factorsNum; j++) {
-												memset(buf, 20, 0);
-												itoa(mat.Element(i, j), buf, 10);
-												send(s, buf, sizeof(buf), 0);
-											}
-										_getch();
-										system("cls");
-										break;
-									}
-									case 2: {
-										system("cls");
-										if (!signl) {
-											cout << "Вы не ввели матрицу";
-											_getch();
-										}
-										else {
-											cout << "Введите значения" << endl;
-											for (int i = 0; i < mat.getM(); i++) {
-												cout << "Эксперт № " << i + 1 << endl;
-												for (int j = 0; j < mat.getN(); j++) {
-													cout << "Оценка альтернативы № " << j + 1 << ':';
-													vv.inputNumber(mat.Element(i, j));
-
-												}
-											}
-											for (int i = 0; i < mat.getM(); i++)
-												for (int j = 0; j < mat.getN(); j++) {
-													memset(buf, 20, 0);
-													itoa(mat.Element(i, j), buf, 10);
-													send(s, buf, sizeof(buf), 0);
-												}
-											_getch();
-										}
-										system("cls");
-										break;
-									}
-									case 3: {
-										system("cls");
-										if (!signl) {
-											cout << "Вы не ввели матрицу";
-											_getch();
-										}
-										else {
-											char longstr[1024];
-											recv(s, longstr, sizeof(longstr), 0);
-											cout << longstr;
-											_getch();
-										}
-										system("cls");
-										break;
-									}
-									case 4: {
-										system("cls");
-										printmatr(mat);
-										system("cls");
-										break;
-									}
-									case 5: {
-										system("cls");
-										cout << "Введите название файла в формате <<name.txt>>: ";
-										cin >> name;
-										send(s, name, sizeof(name), 0);
-										_getch();
-										system("cls");
-										break;
-									}
-									case 6: {
-										system("cls");
-										char longstr[1024];
-										while (true) {
-											cout << "Введите название файла в формате <<name.txt>>: ";
-											cin >> name;
-											send(s, name, sizeof(name), 0);
-											recv(s, name, sizeof(name), 0);
-											if (strcmp(name, "0") == 0) {
-												cout << "Файл с таким именем не существует" << endl;
-											}
-											else break;
-										}
-										memset(buf, 20, 0);
-										recv(s, buf, sizeof(buf), 0);
-										int expertNum = atoi(buf);
-										memset(buf, 20, 0);
-										recv(s, buf, sizeof(buf), 0);
-										int factorsNum = atoi(buf);
-										Matrix sec(expertNum, factorsNum);
-										for (int i = 0; i < expertNum; i++)
-										{
-											for (int j = 0; j < factorsNum; j++)
-											{
-												memset(buf, 20, 0);
-												recv(s, buf, sizeof(buf), 0);
-												sec.Element(i, j) = atoi(buf);
-											}
-											cout << endl;
-										}
-										printmatr(sec);
-										recv(s, longstr, sizeof(longstr), 0);
-										cout << longstr;
-										_getch();
-										system("cls");
-										break;
-									}
-									case 7: {
-										system("cls");
-										string name;
-										int cost;
-										cin.ignore(cin.rdbuf()->in_avail());
-										cout << "Введите название услуги:";
-										getline(cin, name, '\n');
-										char* buffer = new char[name.size() + 1];
-										strcpy(buffer, name.c_str());
-										send(s, buffer, name.size() + 1, 0);
-										delete[] buffer;
-										cout << "Введите цену:";
-										vv.inputNumber(cost);
-										memset(buf, 20, 0);
-										itoa(cost, buf, 10);
-										send(s, buf, sizeof(buf), 0);
-										cout << endl << endl;
-										getServices(s);
-										_getch();
-										system("cls");
-										break;
-									}
-									case 8: {
-										system("cls");
-										int choice;
-										getServices(s);
-										cout << endl << "Какую услугу удалить?" << endl;
-										vv.inputNumber(choice);
-										memset(buf, 20, 0);
-										itoa(choice, buf, 10);
-										send(s, buf, sizeof(buf), 0);
-										system("cls");
-										getServices(s);
-										_getch();
-										system("cls");
-										break;
-									}
-									case 9: {
-										system("cls");
-										getServices(s);
-										int choice;
-										cout << endl << "Какую услугу изменить?" << endl;
-										cout << "Введите номер:" << endl;
-										vv.inputNumber(choice);
-										memset(buf, 20, 0);
-										itoa(choice, buf, 10);
-										send(s, buf, sizeof(buf), 0);
-										string name;
-										int cost;
-										cout << "Название услуги:";
-										cin.ignore(cin.rdbuf()->in_avail());
-										getline(cin, name, '\n');
-										char* buffer = new char[name.size() + 1];
-										strcpy(buffer, name.c_str());
-										send(s, buffer, name.size() + 1, 0);
-										delete[] buffer;
-										cout << "Стоимость услуги:";
-										vv.inputNumber(cost);
-										memset(buf, 20, 0);
-										itoa(cost, buf, 10);
-										send(s, buf, sizeof(buf), 0);
-										system("cls");
-										getServices(s);
-										_getch();
-										system("cls");
-										break;
-									}
-									case 10: {
-										system("cls");
-										getServices(s);
-										_getch();
-										system("cls");
-										break;
-									}
-									case 11: {
-										recv(s, res, sizeof(res), 0);
-										u = atoi(res);
-										break;
-									}
-									}
-								}
-							}
-							else if (result == 2)
-								cout << "Логин должен состоять только из строчных букв." << endl;
-							else
-								cout << "Неверный ввод." << endl;
-						}
-						_getch();
-						system("cls");
-						break;
-					}
-					case 2:
-						recv(s, res, sizeof(res), 0);
-						t = atoi(res);
-						break;
-					default:
-						system("cls");
-						cout << "Повторите ввод." << endl;
-						_getch();
-					}
-				}
-				system("cls");
-				break;
-			}
-			case 2: {
-				system("cls");
-				int t = 0;
-				while (t == 0) {
-					cout << "1.  Вход\n";
-					cout << "2.  Регистрация \n";
-					cout << "3.  Выход \n";
-					cin >> choice;
-					itoa(choice, buf, 10);
-					send(s, buf, 20, 0);
-					switch (choice) {
-					case 1: {
-						system("cls");
-						cout << "Введите логин: " << endl;
-						client.inputLogin();
-						string temp = client.getLogin();
-						char* tmp = new char[temp.size() + 1];
-						strcpy(tmp, temp.c_str());
-						send(s, tmp, temp.size() + 1, 0);
-						cout << "Введите пароль: " << endl;
-						client.inputPass();
-						temp = client.getPass();
-						strcpy(tmp, temp.c_str());
-						send(s, tmp, temp.size() + 1, 0);
-						if (recv(s, res, sizeof(res), 0) != 0) {
-							result = atoi(res);
-							if (result == 1) {
-								system("cls");
-								int u = 0;
-								while (u == 0) {
-									cout << "\tМеню Пользователя:\n" << endl;
-									cout << "1. Ввести матрицу эффективности назначений" << endl;
-									cout << "2. Редактировать введенные значения" << endl;
-									cout << "3. Вычислить наиболее важный фактор" << endl;
-									cout << "4. Вывести матрицу эффективности" << endl;
-									cout << "5. Вывод услуг СТО" << endl;
-									cout << "6. Выход\n\n" << endl;
-									int x;
-									vv.inputNumber(x);
-									itoa(x, buf1, 10);
-									send(s, buf1, 20, 0);
-									switch (x) {
-									case 1:
-										system("cls");
-										cout << "Введите количество экспертов:" << endl;
-										fflush(stdin);
-										int expertNum;
-										vv.inputNumber(expertNum);
-										memset(buf, 20, 0);
-										itoa(expertNum, buf, 10);
-										send(s, buf, 10, 0);
-										cout << "Введите количество факторов(альтернатив):" << endl;
-										int factorsNum;
-										vv.inputNumber(factorsNum);
-										memset(buf, 20, 0);
-										itoa(factorsNum, buf, 10);
-										send(s, buf, 10, 0);
-										mat.Create(expertNum, factorsNum);
-										cout << "Введите значения" << endl;
-										for (int i = 0; i < expertNum; i++) {
-											cout << "Эксперт № " << i + 1 << endl;
-											for (int j = 0; j < factorsNum; j++) {
-												cout << "Оценка альтернативы № " << j + 1 << ':';
-												vv.inputNumber(mat.Element(i, j));
-
-											}
-										}
-										signl = true;
-										for (int i = 0; i < expertNum; i++)
-											for (int j = 0; j < factorsNum; j++) {
-												memset(buf, 20, 0);
-												itoa(mat.Element(i, j), buf, 10);
-												send(s, buf, sizeof(buf), 0);
-											}
-										_getch();
-										system("cls");
-										break;
-									case 2:
-										system("cls");
-										if (!signl) {
-											cout << "Вы не ввели матрицу";
-											_getch();
-										}
-										else {
-											cout << "Введите номер эксперта, оценки которого вы хотите изменить: ";
-											int num;
-											vv.inputNumber(num);
-											cout << "Введите новые значения. " << endl;
-											for (int j = 0; j < mat.getN(); j++) {
-												cout << "Оценка альтернативы № " << j + 1 << ':';
-												vv.inputNumber(mat.Element(num, j));
-												cout << endl;
-											}
-											for (int i = 0; i < mat.getM(); i++)
-												for (int j = 0; j < mat.getN(); j++) {
-													memset(buf, 20, 0);
-													itoa(mat.Element(i, j), buf, 10);
-													send(s, buf, sizeof(buf), 0);
-												}
-											_getch();
-										}
-										system("cls");
-										break;
-									case 3:
-										system("cls");
-										if (!signl) {
-											cout << "Вы не ввели матрицу";
-											_getch();
-										}
-										else {
-											char longstr[1024];
-											recv(s, longstr, sizeof(longstr), 0);
-											cout << longstr;
-											_getch();
-										}
-										system("cls");
-										break;
-									case 4: {
-										system("cls");
-										printmatr(mat);
-										system("cls");
-										break;
-									}
-									case 5: {
-										system("cls"); char stroka[100];
-										recv(s, stroka, sizeof(stroka), 0);
-										int size = atoi(stroka);
-										Product* mass = new Product[size + 1];
-										string name;
-										int cost;
-										for (int i = 0; i < size; ++i) {
-											recv(s, stroka, sizeof(stroka), 0);
-											name = stroka;
-											mass[i].setName(name);
-											recv(s, stroka, sizeof(stroka), 0);
-											cost = atoi(stroka);
-											mass[i].setCost(cost);
-										}
-										for (int i = 0; i < size; ++i) {
-											cout << setw(4) << left << i + 1 << setw(70) << mass[i].getName() << setw(6) << mass[i].getCost() << "руб." << endl;
-										}
-										delete[] mass;
-										_getch();
-										system("cls");
-										break;
-									}
-									case 6: {
-										recv(s, res, sizeof(res), 0);
-										u = atoi(res);
-										break;
-									}
-									}
-								}
-							}
-							else if (result == 0)
-								cout << "Неверно! Повторите ввод!." << endl;
-							else if (result == 2)
-								cout << "Логин должен состоять только из строчных букв." << endl;
-							else if (result == -1)
-								cout << "Нет зарегистрированных пользователей." << endl;
-
-						}
-						_getch();
-						system("cls");
-						break;
-					}
-					case 2: {
-						system("cls");
-						cout << "Введите логин: " << endl;
-						client.inputLogin();
-						string temp = client.getLogin();
-						char* tmp = new char[temp.size() + 1];
-						strcpy(tmp, temp.c_str());
-						send(s, tmp, temp.size() + 1, 0);
-						cout << "Введите пароль: " << endl;
-						client.inputPass();
-						temp = client.getPass();
-						strcpy(tmp, temp.c_str());
-						send(s, tmp, temp.size() + 1, 0);
-						if (recv(s, res, sizeof(res), 0) != 0) {
-							result = atoi(res);
-							if (result == 0) {
-								cout << "Регистрация прошла успешно." << endl;
-							}
-							else if (result == 1)
-								cout << "Такой логин уже используется." << endl;
-							else if (result == 2)
-								cout << "Логин должен состоять только из строчных букв." << endl;
-						}
-						_getch();
-						system("cls");
-						break;
-					}
-					case 3:
-						recv(s, res, sizeof(res), 0);
-						t = atoi(res);
-						break;
-					default:
-						system("cls");
-						cout << "Неверный ввод. Введите другое число\n";
-						system("pause");
-					}
-				}
-				system("cls");
-				break;
-			}
-			case 3:
-				return;
-			default:
-				cout << "Неверный выбор" << endl;
-				break;
-			}
-		}
-		closesocket(s);
+	SOCKET s = socket(AF_INET, SOCK_STREAM, 0);
+	sockaddr_in local_addr;
+	local_addr.sin_family = AF_INET;
+	local_addr.sin_port = htons(1280);
+	local_addr.sin_addr.s_addr = 0;
+	bind(s, (sockaddr*)&local_addr, sizeof(local_addr));
+	int c = listen(s, 5);
+	cout << "Сервер настроен." << endl;
+	cout << "Ожидание подключения..." << endl;
+	SOCKET client_socket;
+	sockaddr_in client_addr;
+	int client_addr_size = sizeof(client_addr);
+	while ((client_socket = accept(s, (sockaddr*)&client_addr, &client_addr_size))) {
+		clientNumb++;
+		serverInfo();
+		DWORD thID;
+		CreateThread(NULL, NULL, ThreadFunc, &client_socket, NULL, &thID);
 	}
-	WSACleanup();
 }
