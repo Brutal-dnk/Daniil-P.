@@ -1,39 +1,12 @@
-#pragma once
-#include <winsock2.h>
-#include "process.h"
-#include <locale.h>
 #include <iostream>
-#include <fstream>
-#include <time.h>
-#include <conio.h>
-#include <vector>
-#include <string>
-#include <list>
 #include <iomanip>
-#include <math.h>
-
-
+#include <vector>
+#include <fstream>
+#include <WinSock2.h>
 #pragma comment(lib, "ws2_32.lib")
 #pragma warning(disable:4996)
 
 using namespace std;
-
-int clientNumb = 0;
-
-void serverInfo() {
-	if (clientNumb) {
-		cout << "Подключение..." << endl;
-		cout << clientNumb << " клиент подключен." << endl;
-		char tmpbuf[128];
-		_tzset();
-		_strtime_s(tmpbuf, 128);
-		printf("Время:\t\t\t\t%s\n", tmpbuf);
-		_strdate_s(tmpbuf, 128);
-		printf("Дата:\t\t\t\t%s\n", tmpbuf);
-	}
-	else
-		cout << "Нет подключенных клиентов." << endl;
-}
 
 void inputNumber(int& integer) {
 	while (!(cin >> integer) || (cin.peek() != '\n'))
@@ -46,22 +19,30 @@ void inputNumber(int& integer) {
 }
 
 class Authorization {
-private:
-	SOCKET s2;
-	char log[20];
-	char pass[20];
-	string Login;
-	string Password;
-	int status;
 public:
-	Authorization() { this->status = 0; }
-	int registration(char*, char*, char*);
-	int check(char*, char*, char*);
-	int CheckAccount();
-	~Authorization() {};
+	string login;
+	string password;
+public:
+	Authorization() {}
+
+	void inputLogin() { cin >> this->login; }
+
+	void inputPass() { cin >> this->password; }
+
+	string getLogin() { return this->login; }
+
+	string getPass() { return this->password; }
+
+	int RegistAdmin();
+
+	int RegistUser();
+
+	int AuthorAdmin();
+
+	int AuthorUser();
+
+	~Authorization() {}
 };
-
-
 
 class Matrix {
 private:
@@ -76,11 +57,7 @@ public:
 
 	Matrix(int i, int j) : m(i), n(j) { Create(); }
 
-	~Matrix()
-	{
-		for (int z = 0; z < m; z++)
-			delete[] Matr[z];
-	}
+	~Matrix() {}
 
 	void Create()
 	{
@@ -100,7 +77,7 @@ public:
 
 	int& Element(int i, int j)
 	{
-		if (i < m && j < n)
+		if (i <= m && j <= n)
 			return Matr[i][j];
 		else
 			cout << "Error: 1";
@@ -124,152 +101,78 @@ public:
 			for (int j = 0; j < n; j++)
 				inputNumber(this->Element(i, j));
 	}
+
+	int getM() { return this->m; }
+
+	int getN() { return this->n; }
 };
 
 
-class RankMethod {
-private:
-	Matrix matr;
-	int expertNum;
-	int factorsNum;
-	vector<float> weightFactor;
-	vector<int> summAlternatives;
-	vector<float> dispersionExperts;
-	vector<float> dispersionAlternatives;
+void printmatr(Matrix mat) {
+	std::cout << "Матрица :" << std::endl;
+	char k = 'A';
+	cout << setfill('_') << setw(10) << "_" << setw(mat.getN() * 7 - 1) << "_" << endl;
+	cout << setw(10) << setfill(' ') << "|" << setw(mat.getN() * 7) << "Альтернативы |" << endl;
+	cout << setw(10) << "Эксперты |" << setw(mat.getN() * 7) << setfill('-') << "|" << endl;
+	cout << setw(10) << setfill(' ') << "|";
+	for (int i = 0; i < mat.getN(); i++)
+		cout << setw(6) << i + 1 << "|";
+	cout << endl << setfill('-') << setw(10) << "|" << setw(mat.getN() * 7) << "|" << setfill(' ') << endl;
+	for (int i = 0; i < mat.getM(); i++) {
+		cout << setw(9) << k << "|"; k += 1;
+		for (int j = 0; j < mat.getN(); j++) {
+			std::cout << std::setw(6) << mat.Element(i, j) << "|";
+		}
+		cout << endl << setfill('-') << setw(10) << "|" << setw(mat.getN() * 7) << "|" << setfill(' ') << endl;
+	}
+	_getch();
+}
+
+template <class T>
+class Chek {
 public:
-	RankMethod() {};
+	T input();
+};
 
-	RankMethod(int factorsNum, int expertNum) {
-		this->expertNum = expertNum;
-		this->factorsNum = factorsNum;
-		matr.Create(factorsNum, expertNum);
-	}
-
-	~RankMethod() {}
-
-	void countWeight() {
-		summAlternatives.clear();
-		weightFactor.clear();
-		int sum = 0;
-		for (int j = 0; j < this->factorsNum; j++) {
-			sum = 0;
-			for (int i = 0; i < this->expertNum; i++)
-				sum += matr.Element(i, j);
-			this->summAlternatives.push_back(sum);
-		}
-		sum = 0;
-		for (vector<int>::iterator it = summAlternatives.begin(); it != this->summAlternatives.end(); it++)
-			sum += *it;
-		float temp;
-		for (vector<int>::iterator it = summAlternatives.begin(); it != this->summAlternatives.end(); it++) {
-			temp = (float)*it / sum;
-			weightFactor.push_back(temp);
+template<>
+class Chek<int> {
+public:
+	void inputNumber(int& integer) {
+		while (!(cin >> integer) || (cin.peek() != '\n'))
+		{
+			cin.clear();
+			while (cin.get() != '\n');
+			cout << "Ошибка ввода!Попробуйте еще раз." << endl;
 		}
 	}
+};
 
-	void consistencyСheck() {
-		dispersionExperts.clear();
-		dispersionAlternatives.clear();
-		vector<float> averageAlternatives;
-		float temp;
-		for (vector<int>::iterator it = summAlternatives.begin(); it != this->summAlternatives.end(); it++) {
-			temp = (float)*it / this->expertNum;
-			averageAlternatives.push_back(temp);
-		}
-		vector<float>::iterator iter = averageAlternatives.begin();
-		temp = 0;
-		float temp2 = 0;
-		for (int i = 0; i < this->expertNum; i++) {
-			temp2 = 0;
-			temp = 0;
-			iter = averageAlternatives.begin();
-			for (int j = 0; j < this->factorsNum, iter != averageAlternatives.end(); j++) {
-				temp += pow((matr.Element(i, j) - *iter), 2);
-				iter++;
-			}
-			temp2 = (float)((float)1 / (this->expertNum - 1)) * temp;
-			dispersionExperts.push_back(temp2);
-		}
-		//dispersionExperts.erase(dispersionExperts.begin());
-		iter = averageAlternatives.begin();
-		for (int j = 0; j < this->factorsNum; j++) {
-			temp2 = 0;
-			temp = 0;
-			for (int i = 0; i < this->expertNum; i++ ) {
-				temp += pow((matr.Element(i, j) - *iter), 2);
-			}
-			iter++;
-			temp2 = (float)((float)1 / (this->expertNum - 1)) * temp;
-			dispersionAlternatives.push_back(temp2);
-		}
-		//dispersionAlternatives.erase(dispersionAlternatives.begin());
-	}
-
-	void inputValues() {
-		matr.inputMatrix();
-	}
-
-	void outputMatrix() {
-		matr.Display();
-	}
-
-	void inputMatrixElem(int m, int n, int elem) {
-		matr.Element(m, n) = elem;
-	}
-
-	void createMatrix(int expertNum,int factorsNum){
-		this->expertNum = expertNum;
-		this->factorsNum = factorsNum;
-		matr.Create(expertNum,factorsNum);
-	}
-
-	int getExpertNum() { return this->expertNum; }
-
-	int getFactorsNum() { return this->factorsNum; }
-
-	int getMatrixElem(int m, int n) { return matr.Element(m, n); }
-
-	string outputResultOfMethod() {
-		int k,tmp;
-		tmp = this->weightFactor[0];
-		k = 0;
-		for (int i = 0; i < this->weightFactor.size(); i++) {
-			if (tmp < this->weightFactor[i]) {
-				tmp = this->weightFactor[i];
-				k = i;
-			}
-		}
-		char;
+template<>
+class Chek<string> {
+public:
+	string input() {
 		string str;
-		string s;
-		s = to_string(k+1);
-		str = "Наиболее предпочтительной, по мнению экспертов, является альтернатива,имеющая максимальный вес. Альтернатива имеющая MAX вес - " + s+". ";
-		str += "Ее вес - ";
-		s = to_string(this->weightFactor[k]);
-		str += s+". ";
-		tmp = this->dispersionExperts[0];
-		k = 0;
-		for (int i = 0; i < this->dispersionExperts.size(); i++) {
-			if (tmp < this->dispersionExperts[i]) {
-				tmp = this->dispersionExperts[i];
-				k = i;
+		const char* p;
+		int s = 1;
+		while (s != 0) {
+			s = 0;
+			cin >> str;
+			p = str.c_str();
+			if ((int)p[0] > -65 && (int)p[0] < -32) {
+				for (int i = 1; i < str.size() && s != 1; i++) {
+					if ((int)p[i]<0 && (int)p[i] > -65 || (int)p[i] == 45)
+						s = 0;
+					else {
+						s = 1;
+						cout << "Возможно вы ввели запрещенный символ. Попробуйте еще раз.(раскладка клавиатуры русская)" << endl;
+					}
+				}
+			}
+			else {
+				cout << "Первая буква в фамилии, отчестве, имени - заглавная!(раскладка клавиатуры русская)" << endl;
+				s = 1;
 			}
 		}
-		s = to_string(k+1);
-		str += "Наибольшая дисперсия оценок у " + s + " эксперта, равная ";
-		s = to_string(this->dispersionExperts[k]);
-		str += s + ". ";
-		tmp = this->dispersionAlternatives[0];
-		for (int i = 0; i < this->dispersionAlternatives.size(); i++) {
-			if (tmp < this->dispersionAlternatives[i]) {
-				tmp = this->dispersionAlternatives[i];
-				k = i;
-			}
-		}
-		s = to_string(k+1);
-		str += "Наибольшая дисперсия оценок у " + s + " альтернативы, равная ";
-		s = to_string(this->dispersionAlternatives[k]);
-		str += s + ".";
 		return str;
 	}
 };
@@ -284,226 +187,13 @@ public:
 	void setCost();
 	void setCost(float cost);
 	float getCost();
+	void getInfo();
 	Product();
 	Product(string name, float cost);
 
 	friend ostream& operator<<(ostream& os, const Product& product);
 	friend istream& operator>>(istream& is, Product& product);
 };
-
-
-class STO {
-	string name;
-	vector<Product> product;
-public:
-	STO() {};
-	STO(string name);
-	~STO() {};
-	void setName();
-	void setName(string name);
-	void showProducts();
-	void addProduct();
-	void addProduct(float cost,string name);
-	void changeProducts();
-	void writeInFile();
-	void readFromFile();
-	void searchProduct();
-	void deleteProduct();
-	void STO::showProductsServ(const SOCKET &sock);
-	void deleteProductServ(int choice);
-	void changeProductsServ(int choice, string name, float cost);
-
-	friend ostream& operator<<(ostream& os, const STO& product);
-};
-
-STO::STO(string name) {
-	this->name = name;
-}
-
-void STO::setName() { cin >> this->name; }
-
-void STO::setName(string name) { this->name = name; }
-
-void STO::showProducts() {
-	int i = 0;
-	for (vector<Product>::iterator it = product.begin(); it != product.end(); ++it, ++i) {
-		//for (int i = 0; i < product.size(); ++i) {
-		cout << setw(4) << left << i + 1 << setw(70) << it->getName() << setw(6) << it->getCost() << "руб." << endl;
-	}
-}
-
-void STO::showProductsServ(const SOCKET& sock) {
-	char buffer[100];
-	sprintf_s(buffer, "%d", product.size());
-	send(sock, buffer, sizeof(buffer), 0);
-	string name;
-	for (vector<Product>::iterator it = product.begin(); it != product.end(); ++it) {
-		name = it->getName();
-		strcpy(buffer, name.c_str());
-		send(sock, buffer, sizeof(buffer), 0);
-		int numb = it->getCost();
-		sprintf_s(buffer, "%d", numb);
-		send(sock, buffer, sizeof(buffer), 0);
-	}
-}
-
-void STO::addProduct() {
-	Product temp;
-	temp.setName();
-	temp.setCost();
-	product.push_back(temp);
-}
-
-void STO::addProduct(float cost, string name) {
-	Product temp;
-	temp.setName(name);
-	temp.setCost(cost);
-	product.push_back(temp);
-}
-
-void STO::writeInFile() {
-	string nameOfFile = this->name + ".txt";
-	ofstream ofs(nameOfFile, ios::out);
-	if (ofs.is_open()) {
-		cout << "Файл " << nameOfFile << " открыт" << endl;
-		for (vector<Product>::iterator it = product.begin(); it != product.end(); ++it) {
-			ofs << *it;
-		}
-		ofs.close();
-	}
-	else {
-		cout << "Ошибка открытия файла " << this->name << endl;
-	}
-}
-
-void STO::readFromFile() {
-	string nameOfFile = this->name + ".txt";
-	ifstream ifs(nameOfFile, ios::in);
-	if (ifs.is_open()) {
-		cout << "Файл " << nameOfFile << " открыт" << endl;
-		while (!ifs.eof()) {
-			Product temp;
-			ifs >> temp;
-			product.push_back(temp);
-		}
-		product.pop_back();
-		ifs.close();
-	}
-	else {
-		cout << "Ошибка открытия файла.Создан новый файл." << this->name << endl;
-		ofstream oFile(nameOfFile);
-	}
-}
-
-void STO::searchProduct() {
-	system("cls");
-	cout << "1 - Поиск по названию" << endl;
-	cout << "2 - По цене" << endl;
-	cout << "3 - Выход" << endl;
-	switch (_getch()) {
-	case '1': {
-		system("cls");
-		string name;
-		cout << "Введите название модели: ";
-		getline(cin, name);
-		int i = 0;
-		for (vector<Product>::iterator it = product.begin(); it != product.end(); ++it, ++i) {
-			if (name == it->getName())
-				cout << setw(4) << left << i + 1 << setw(70) << it->getName() << setw(30) << it->getCost() << "руб." << endl;
-		}
-		_getch();
-		break;
-	}
-	case '2': {
-		system("cls");
-		int min, max;
-		cout << "Введите ценовой диапазон." << endl << "От :";
-		inputNumber(min);
-		cout << "До :";
-		inputNumber(max);
-		int i = 0;
-		for (vector<Product>::iterator it = product.begin(); it != product.end(); ++it, ++i) {
-			if (it->getCost() > min&& it->getCost() < max)
-				cout << setw(4) << left << i + 1 << setw(70) << it->getName() << setw(30) << it->getCost() << "руб." << endl;
-		}
-		_getch();
-		break;
-	}
-	case '3': {
-		system("cls");
-		break;
-	}
-	default:
-		cout << "Нет такого пункта." << endl;
-	}
-}
-
-void STO::changeProducts() {
-	this->showProducts();
-	cout << "Какой товар изменить?" << endl;
-	int numberOfProduct;
-	int ck = 0;
-	do {
-		cout << "Введите номер :";
-		inputNumber(numberOfProduct);
-		if (numberOfProduct > this->product.size() || numberOfProduct <= 0) {
-			cout << "Нет такого товара" << endl;
-		}
-		else
-			ck = 1;
-	} while (ck != 1);
-	system("cls");
-	cout << "1 - Изменить имя" << endl;
-	cout << "2 - Изменить цену" << endl;
-	cout << "3 - Выход" << endl;
-	switch (_getch()) {
-	case '1': {
-		system("cls");
-		product[numberOfProduct - 1].setName();
-		_getch();
-		break;
-	}
-	case '2': {
-		system("cls");
-		product[numberOfProduct - 1].setCost();
-		_getch();
-		break;
-	}
-	case '3': {
-		system("cls");
-		break;
-	}
-	default:
-		cout << "Нет такого пункта." << endl;
-	}
-}
-
-void STO::changeProductsServ(int choice, string name,float cost) {
-		product[choice - 1].setName(name);
-		product[choice - 1].setCost(cost);
-}
-
-void STO::deleteProductServ(int choice) {
-	this->showProducts();
-	choice--;
-	product.erase(product.begin() + choice);
-}
-
-void STO::deleteProduct() {
-	this->showProducts();
-	cout << "Какой товар убрать?" << endl;
-	int choice;
-	cin >> choice;
-	choice--;
-	product.erase(product.begin() + choice);
-}
-
-ostream& operator<<(ostream& os, const STO& station) {
-	os << station.name << endl;
-	return os;
-}
-
-
 
 void Product::setName() {
 	//std::cin.clear();
@@ -525,6 +215,27 @@ Product::Product() { this->name = ""; this->cost = 0; }
 
 Product::Product(string name, float cost) { this->cost = cost; this->name = name; }
 
+void Product::getInfo() {
+	vector<Product> product;
+	string nameOfFile = "STO.txt";
+	ifstream ifs(nameOfFile, ios::in);
+	if (ifs.is_open()) {
+		cout << "Файл " << nameOfFile << " открыт" << endl;
+		while (!ifs.eof()) {
+			Product temp;
+			ifs >> temp;
+			product.push_back(temp);
+		}
+		product.pop_back();
+		ifs.close();
+	}
+	int i = 0;
+	for (vector<Product>::iterator it = product.begin(); it != product.end(); ++it, ++i) {
+		//for (int i = 0; i < product.size(); ++i) {
+		cout << setw(4) << left << i + 1 << setw(70) << it->getName() << setw(6) << it->getCost() << "руб." << endl;
+	}
+}
+
 ostream& operator<<(ostream& os, const Product& product) {
 	os << product.name << endl << product.cost << endl;
 	return os;
@@ -538,110 +249,23 @@ istream& operator>>(istream& is, Product& product) {
 	return is;
 }
 
-
-
-class Exception : public exception {
-protected:
-	int numbEr;
-public:
-	Exception();
-	Exception(int);
-	int show();
-	~Exception();
-};
-
-Exception::Exception() {
-	numbEr = 0;
+void getServices(const SOCKET &sock) {
+	char stroka[100];
+	recv(sock, stroka, sizeof(stroka), 0);
+	int size = atoi(stroka);
+	Product* mass = new Product[size + 1];
+	string name;
+	int cost;
+	for (int i = 0; i < size; ++i) {
+		recv(sock, stroka, sizeof(stroka), 0);
+		name = stroka;
+		mass[i].setName(name);
+		recv(sock, stroka, sizeof(stroka), 0);
+		cost = atoi(stroka);
+		mass[i].setCost(cost);
+	}
+	for (int i = 0; i < size; ++i) {
+		cout << setw(4) << left << i + 1 << setw(70) << mass[i].getName() << setw(6) << mass[i].getCost() << "руб." << endl;
+	}
+	delete[] mass;
 }
-
-Exception::Exception(int k) {
-	numbEr = k;
-}
-
-int Exception::show() {
-	if (numbEr == 1)
-		return 2;
-}
-
-Exception::~Exception() {}
-
-
-int Authorization::check(char* s, char* login, char* password) throw(Exception) {
-	int tmp = 0;
-	int result = 0;
-	char res[20];
-	ifstream fin(s, ios_base::in);
-	if (!fin) {
-		result = -1;
-	}
-	else {
-		try {
-			flushall();
-			for (int i = 0; login[i]; i++) {
-				if ((login[i] < 'a' || login[i] > 'z') && (login[i] < 'а' || login[i] > 'я'))
-					throw Exception(1);
-			}
-		}
-		catch (Exception ob) {
-			cin.clear();
-			result = ob.show();
-		}
-	}
-	if (fin) {
-		while (!fin.eof()) {
-			fin >> this->log;
-			fin >> this->pass;
-			for (unsigned i = 0; pass[i]; i++)
-				if (strcmp(login, log) == 0 && strcmp(password, pass) == 0) {
-					result = 1;
-				}
-		}
-		fin.close();
-	}
-	return result;
-}
-
-int Authorization::registration(char* s, char* login, char* password) {
-	int tm = 0;
-	int r = 0;
-	char t[20];
-	ofstream fout(s, ios_base::app);
-	ifstream fin(s, ios_base::in);
-	if (!fout.is_open()) {
-		r = -1;
-	}
-	else {
-		try {
-			flushall();
-			for (int i = 0; login[i]; i++) {
-				if ((login[i] < 'a' || login[i] > 'z') && (login[i] < 'A' || login[i] > 'Z'))
-					throw Exception(1);
-			}
-		}
-		catch (Exception ob) {
-			cin.clear();
-			r = ob.show();
-		}
-	}
-	for (unsigned i = 0; login[i]; i++)
-		strcpy(log, login);
-	while (!fin.eof()) {
-		fin >> login;
-		if (strcmp(login, log) == 0) {
-			r = 1;
-			fin.close();
-		}
-	}
-	if (r == 0) {
-		strcpy(pass, password);
-		fout << log << endl;
-		fout << pass << endl;
-		fout.close();
-	}
-	return r;
-}
-
-
-
-
-
